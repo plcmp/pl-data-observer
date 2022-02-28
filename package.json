@@ -1,6 +1,6 @@
 {
     "name": "@plcmp/pl-data-observer",
-    "version": "0.0.1",
+    "version": "0.1.0",
     "description": "Data mutation observer component",
     "main": "pl-data-observer.js",
     "repository": {
