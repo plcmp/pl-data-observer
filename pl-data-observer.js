@@ -111,158 +111,20 @@ class PlDataObserver extends PlElement {
 
             this.isChanged = this._checkMutation();
         }
-    }
-
-    /**
-     * Обсервер, срабатывающий при изменении значения массива **data**.
-     *
-     * Используется для:
-     * * Указания того, что объект был изменен;
-     * * Установки свойства-объекта **_mutations** внутри **data**;
-     * * Формирования информации внутри **_mutations**.
-     * @param {Object} x - детальная информация о состоянии свойства **data**.
-     * @return {void}
-     * @private
-     */
-    _dataCanged(x, old, mutation) {
-        if (!this.data) return;
-        if (mutation.path.match(/\.length$/)) return;
-        let m = mutation.action.match(/^(.*)\.splice$/);
-        if (m) {
-            this.isChanged = true;
-            this._isChangedArray = true;
-            const path = m[1];
-            const mp = path.replace(/\.(\d+)\./g, '.*.');
-            if (this._paths.length == 0 || this._paths.indexOf(mp) >= 0) {
-                if (!this.get([path, '_mutations'])) {
-                    this.get(path)._mutations = {
-                        upd: [], del: [], add: [], touch: []
-                    };
-                }
-                x.value.indexSplices[0].removed.forEach((i) => {
-                    const addIdx = this.get([path, '_mutations.add']).indexOf(i);
-                    if (addIdx < 0) {
-                        this.get([path, '_mutations.del']).push(i);
-                        this._clearMutation(i);
-                        const touchIdx = this.get([path, '_mutations.touch']).indexOf(i);
-                        if (touchIdx >= 0) this.get([path, '_mutations.touch']).splice(touchIdx, 1);
-                        this.setTouch(path.match(/(.+\.\d+)\.\w+/));
-                        const updIdx = this.get([path, '_mutations.upd']).indexOf(i);
-                        if (updIdx >= 0) this.get([path, '_mutations.upd']).splice(updIdx, 1);
-                    } else {
-                        this.get([path, '_mutations.add']).splice(addIdx, 1);
-                        this.setTouch(path.match(/(.+\.\d+)\.\w+/));
-                    }
-                });
-
-                if (x.value.indexSplices[0].removed.length) {
-                    this._isChangedArray = this.isChanged = this._checkMutation();
+        else if (current instanceof Object) {
+            if (current.__old) {
+                this.__changed = this.__changed || {};
+                const prop = mutation.path.split('.').pop();
+                if (current.__old[prop] != current[prop]) {
+                    this.__changed[mutation.path] = true;
+                } else {
+                    delete this.__changed[mutation.path];
                 }
 
-                const index = x.value.indexSplices[0].index;
-                for (let addIdx = index; addIdx < index + x.value.indexSplices[0].addedCount; addIdx++) {
-                    const obj = this.get([path, addIdx]);
-                    const delIdx = this.get([path, '_mutations.del']).indexOf(obj);
-                    if (delIdx < 0) {
-                        const aIdx = this.get([path, '_mutations.add']).indexOf(obj);
-                        if (aIdx < 0) {
-                            this.get([path, '_mutations.add']).push(obj);
-                            this.setTouch(path.match(/(.+\.\d+)\.\w+/));
-                        }
-                    } else {
-                        this.get([path, '_mutations.del']).splice(delIdx, 1);
-                    }
-                }
-            } else {
-                // для данного пути не требуется отслеживать мутации,
-                // поэтому помечаем родительский объект как изменненный
-                this.setTouch(path.match(/(.+\.\d+)\.\w+/), true);
-            }
-        } else {
-            m = x.path.match(/(.+)\.(\d+)(\.([\w\.]+))?$/);
-            if (m) {
-                if (!this.observeSystemFields && m[4] && m[4][0] === '_') {
-                    return;
-                }
-                const path = m[1];
-                if (this._paths.length == 0 || this._paths.indexOf(path.replace(/\.(\d+)\./g, '.*.')) >= 0) {
-                    if (!this.get([path, '_mutations'])) {
-                        this.get(path)._mutations = {
-                            upd: [], del: [], add: [], touch: []
-                        };
-                    }
-                    const item = this.get([path, m[2]]);
-                    if (this.get(path)._mutations.upd.indexOf(item) < 0
-                        && this.get(path)._mutations.add.indexOf(item) < 0) {
-                        this.get(path)._mutations.upd.push(item);
-                        const touchIdx = this.get(path)._mutations.touch.indexOf(item);
-                        if (touchIdx >= 0) this.get(path)._mutations.touch.splice(touchIdx, 1);
-                        this.setTouch(path.match(/(.+\.\d+)\.\w+/));
-                    }
-                }
-            }
-
-            // если внутри измененного обьекта есть отслеживаемые пути то принудительно вызываем инициализацию массивов
-            if (this._paths.length > 0) {
-                this._paths
-                    .forEach(i => {
-                        if (i.indexOf(x.path.replace(/\.(\d+)\./g, '.*.')) !== 0) return;
-                        let path = x.path;
-                        // для всех отслеживаний на которые может повлиять изменение текущего пути
-                        const el = this.get(path);
-                        // проверяем являются ли отслеживаемый путь непустым массивом
-                        if (Array.isArray(el) && el.length > 0) {
-                            // имитируем добавление всех элементов в массив
-                            this._dataCanged({
-                                path: `${path}.splices`,
-                                value: {
-                                    indexSplices: [
-                                        {
-                                            index: 0,
-                                            removed: [],
-                                            addedCount: el.length
-                                        }
-                                    ]
-                                }
-                            });
-                        }
-                    });
-
-                let path = '';
-                this._paths.forEach(i => {
-                    if (x.path.replace(/\.(\d+)\./g, '.*.').indexOf(i) === 0)
-                        path = i;
-                });
-
-
-                const prop = x.path.split('.');
-                if (prop.length > 1)
-                    prop.pop();
-                path = prop.join('.');
-                m = x.path.match(/\.(\w+)$/);
-                if (m && !this.observeSystemFields && m[1] && m[1][0] === '_') {
-                    return;
-                }
-                const el = this.get(path);
-                if (el instanceof Object) {
-                    if (el.__old) {
-                        this.__changed = this.__changed || {};
-                        const prop = x.path.split('.').pop();
-                        if ((el.__old[prop] !== el[prop] && !this.useNonStrictEquality)
-                            || (el.__old[prop] != el[prop] && this.useNonStrictEquality)) {
-                            this.__changed[x.path] = true;
-                            this.set([path, '__changed'], true);
-                        } else {
-                            delete this.__changed[x.path];
-                            this.set([path, '__changed'], false);
-                        }
-                        if (!this._isChangedArray) this.isChanged = Object.keys(this.__changed).length !== 0;
-                    }
-                }
+                this.isChanged = Object.keys(this.__changed).length !== 0;
             }
         }
     }
-
 
     reset(obj) {
         this.isChanged = false;
@@ -331,19 +193,6 @@ class PlDataObserver extends PlElement {
                 if (obj[k] instanceof Object && !(obj[k] instanceof Date)) this.snapshot(obj[k]);
                 else obj.__old[k] = obj[k];
             });
-        }
-    }
-
-
-    clear(obj) {
-        this.isChanged = false;
-        obj = obj || this.data;
-        if (obj instanceof Object) {
-            delete obj.__old;
-            for (const prop in obj) {
-                const o = obj[prop];
-                if (o instanceof Object) this.clear(o);
-            }
         }
     }
 }
