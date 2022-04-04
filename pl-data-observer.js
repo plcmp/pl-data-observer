@@ -1,4 +1,5 @@
 import { PlElement, css } from "polylib";
+import {normalizePath} from "polylib/common.js";
 
 class PlDataObserver extends PlElement {
     static get properties() {
@@ -23,107 +24,100 @@ class PlDataObserver extends PlElement {
         `;
     }
 
-    setTouch(match, markUpd) {
-        if (!match || !match[1]) return;
-        const path = match[1];
-        const arr = this.get(path.match(/([\w\.]+)\.\d+$/)[1]);
-        const mp = path.replace(/\.(\d+)/, '');
-        if (this._paths.length == 0 || this._paths.indexOf(mp) >= 0) {
-            // для данного пути требуются мутации
-            if (arr) {
-                const item = this.get(path);
-                if (!arr._mutations) {
-                    arr._mutations = {
-                        upd: [], del: [], add: [], touch: []
-                    };
+    setTouch(path, chain) {
+        chain.reduceRight( (a,c,i) => {
+            if (!a) return c;
+            if (Array.isArray(c)) {
+                c._mutations = c._mutations || { upd: [], del: [], add: [], touch: [] };
+                let prop = path.at(i);
+                if (c._mutations.add.indexOf(a) < 0
+                    && c._mutations.del.indexOf(a) < 0
+                    && c._mutations.upd.indexOf(a) < 0
+                    && c._mutations.touch.indexOf(a) < 0) {
+                    c._mutations.touch.push(a);
                 }
-
-                if (arr._mutations.add.indexOf(item) < 0
-                    && arr._mutations.del.indexOf(item) < 0
-                    && arr._mutations.upd.indexOf(item) < 0
-                    && arr._mutations.touch.indexOf(item) < 0
-                ) {
-                    if (markUpd) arr._mutations.upd.push(item);
-                    else arr._mutations.touch.push(item);
-                }
-
-                this.setTouch(path.match(/(.+\.\d+)\.\w+/));
             }
-        }
+            return c;
+        }, null);
     }
 
-    _dataChanged(current, old, mutation) {
+    _dataChanged(newVal, old, mutation) {
         if (!this.data) return;
-        if (Array.isArray(current)) {
-            if (mutation.oldValue && mutation.oldValue.length == 0 && mutation.value.length == 0) {
-                return;
+        let path = normalizePath(mutation.path);
+        let c = this;
+        let chain = path.map( p => c = c[p] );
+        console.log(chain)
+        let current = chain.at(-1);
+
+        if (Array.isArray(current) && mutation.action === 'splice') {
+            if (!current._mutations) {
+                current._mutations = { upd: [], del: [], add: [], touch: [] };
             }
 
-            if (mutation.action === 'splice') {
-                if (!this.get([mutation.path, '_mutations'])) {
-                    this.get(mutation.path)._mutations = {
-                        upd: [], del: [], add: [], touch: []
-                    };
-                }
-
-                if (mutation.deletedCount > 0) {
-                    mutation.deleted.forEach((i) => {
-                        const addIdx = this.get(`${mutation.path}._mutations.add`).indexOf(i);
-                        if (addIdx < 0) {
-                            this.get(`${mutation.path}._mutations.del`).push(i);
-                            this._clearMutation(i); // очистка мутации у удаленного элеменета
-                            const updIdx = this.get(`${mutation.path}._mutations.upd`).indexOf(i);
-                            if (updIdx >= 0) this.get(`${mutation.path}._mutations.upd`).splice(updIdx, 1);
-                        } else {
-                            this.get(`${mutation.path}._mutations.add`).splice(addIdx, 1);
-                            this.setTouch(mutation.path.match(/(.+\.\d+)\.\w+/));
-                        }
-                    });
-                }
-
-                if (mutation.addedCount > 0) {
-                    mutation.added.forEach((i) => {
-                        const delIdx = this.get(`${mutation.path}._mutations.del`).indexOf(i);
-                        if (delIdx < 0) {
-                            const aIdx = this.get(`${mutation.path}._mutations.add`).indexOf(i);
-                            if (aIdx < 0) {
-                                this.get(`${mutation.path}._mutations.add`).push(i);
-                                this.setTouch(mutation.path.match(/(.+\.\d+)\.\w+/));
-                            }
-                        } else {
-                            this.get(`${mutation.path}._mutations.del`).splice(delIdx, 1);
-                        }
-                    });
-                }
-            }
-
-            if (mutation.action === 'upd') {
-                const m = mutation.path.match(/(.+)\.(\d+)(\.([\w\.]+))?$/);
-                if (m) {
-                    const path = m[1];
-                    const item = this.get([path, m[2]]);
-                    if (this.get(path)._mutations.upd.indexOf(item) < 0 && this.get(path)._mutations.add.indexOf(item) < 0) {
-                        this.get(path)._mutations.upd.push(item);
+            if (mutation.deletedCount > 0) {
+                mutation.deleted.forEach((i) => {
+                    const addIdx = current._mutations.add.indexOf(i);
+                    if (addIdx < 0) {
+                        current._mutations.del.push(i);
+                        this._clearMutation(i); // clear mutations in deleted element
+                        const updIdx = current._mutations.upd.indexOf(i);
+                        if (updIdx >= 0) current._mutations.upd.splice(updIdx, 1);
+                        const touchIdx = current._mutations.touch.indexOf(i);
+                        if (touchIdx >= 0) current._mutations.touch.splice(touchIdx, 1);
+                    } else {
+                        current._mutations.add.splice(addIdx, 1);
                     }
-                    // TODO реализовать откат изменений и удаление мутации изменения
-                }
+                });
+                this.setTouch(path, chain);
             }
 
-            this.isChanged = this._checkMutation();
+            if (mutation.addedCount > 0) {
+                mutation.added.forEach((i) => {
+                    const delIdx = current._mutations.del.indexOf(i);
+                    if (delIdx < 0) {
+                        const aIdx = current._mutations.add.indexOf(i);
+                        if (aIdx < 0) {
+                            current._mutations.add.push(i);
+                        }
+                    } else {
+                        current._mutations.del.splice(delIdx, 1);
+                    }
+                });
+                this.setTouch(path, chain);
+            }
+
+
         }
-        else if (current instanceof Object) {
-            if (current.__old) {
-                this.__changed = this.__changed || {};
-                const prop = mutation.path.split('.').pop();
-                if (current.__old[prop] != current[prop]) {
-                    this.__changed[mutation.path] = true;
+        else if (chain.at(-2) instanceof Object && mutation.action === 'upd') {
+            current = chain.at(-2);
+            if (current._old) {
+                this._changed = this._changed || {};
+                const prop = path.at(-1);
+                if (current._old[prop] !== current[prop]) {
+                    this._changed[current[prop]] = true;
                 } else {
-                    delete this.__changed[mutation.path];
+                    delete this._changed[current[prop]];
                 }
-
-                this.isChanged = Object.keys(this.__changed).length !== 0;
+                this.setTouch(path, chain);
+                //TODO
+                //this.isChanged = Object.keys(this._changed).length !== 0;
             }
         }
+
+        /*if (mutation.action === 'upd') {
+            //TODO: replace of array
+            /!*
+            const m = mutation.path.match(/(.+)\.(\d+)(\.([\w\.]+))?$/);
+            if (m) {
+                const path = m[1];
+                const item = this.get([path, m[2]]);
+                if (this.get(path)._mutations.upd.indexOf(item) < 0 && this.get(path)._mutations.add.indexOf(item) < 0) {
+                    this.get(path)._mutations.upd.push(item);
+                }
+                // TODO реализовать откат изменений и удаление мутации изменения
+            }*!/
+        }*/
+        this.isChanged = this._checkMutation();
     }
 
     reset(obj) {
@@ -187,11 +181,11 @@ class PlDataObserver extends PlElement {
                 if (i instanceof Object) this.snapshot(i);
             });
         } else {
-            obj.__old = obj.__old || {};
+            obj._old = obj._old || {};
             Object.keys(obj).forEach((k) => {
-                if (k == '__old') return;
+                if (k === '_old') return;
                 if (obj[k] instanceof Object && !(obj[k] instanceof Date)) this.snapshot(obj[k]);
-                else obj.__old[k] = obj[k];
+                else obj._old[k] = obj[k];
             });
         }
     }
