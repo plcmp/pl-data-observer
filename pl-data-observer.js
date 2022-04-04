@@ -24,21 +24,30 @@ class PlDataObserver extends PlElement {
         `;
     }
 
-    setTouch(path, chain) {
-        chain.reduceRight( (a,c,i) => {
-            if (!a) return c;
-            if (Array.isArray(c)) {
-                c._mutations = c._mutations || { upd: [], del: [], add: [], touch: [] };
-                let prop = path.at(i);
+    setTouch(path, chain, upd) {
+        let c = chain.at(-2);
+        let a = chain.at(-1);
+        if (!c) return;
+        if (Array.isArray(c)) {
+            c._mutations = c._mutations || {upd: [], del: [], add: [], touch: []};
+            if (this._checkMutation(c)) {
                 if (c._mutations.add.indexOf(a) < 0
                     && c._mutations.del.indexOf(a) < 0
                     && c._mutations.upd.indexOf(a) < 0
                     && c._mutations.touch.indexOf(a) < 0) {
-                    c._mutations.touch.push(a);
+                    if (upd) c._mutations.upd.push(a);
+                    else c._mutations.touch.push(a);
                 }
+            } else {
+                const updIdx = c._mutations.upd.indexOf(a);
+                if (updIdx >= 0) c._mutations.upd.splice(updIdx, 1);
+                const touchIdx = c._mutations.touch.indexOf(a);
+                if (touchIdx >= 0) c._mutations.touch.splice(touchIdx, 1);
             }
-            return c;
-        }, null);
+            upd = false;
+
+            this.setTouch(path.slice(0, -1), chain.slice(0, -1), upd);
+        }
     }
 
     _dataChanged(newVal, old, mutation) {
@@ -46,7 +55,6 @@ class PlDataObserver extends PlElement {
         let path = normalizePath(mutation.path);
         let c = this;
         let chain = path.map( p => c = c[p] );
-        console.log(chain)
         let current = chain.at(-1);
 
         if (Array.isArray(current) && mutation.action === 'splice') {
@@ -91,32 +99,10 @@ class PlDataObserver extends PlElement {
         else if (chain.at(-2) instanceof Object && mutation.action === 'upd') {
             current = chain.at(-2);
             if (current._old) {
-                this._changed = this._changed || {};
-                const prop = path.at(-1);
-                if (current._old[prop] !== current[prop]) {
-                    this._changed[current[prop]] = true;
-                } else {
-                    delete this._changed[current[prop]];
-                }
-                this.setTouch(path, chain);
-                //TODO
-                //this.isChanged = Object.keys(this._changed).length !== 0;
+                this.setTouch(path, chain, true);
             }
         }
 
-        /*if (mutation.action === 'upd') {
-            //TODO: replace of array
-            /!*
-            const m = mutation.path.match(/(.+)\.(\d+)(\.([\w\.]+))?$/);
-            if (m) {
-                const path = m[1];
-                const item = this.get([path, m[2]]);
-                if (this.get(path)._mutations.upd.indexOf(item) < 0 && this.get(path)._mutations.add.indexOf(item) < 0) {
-                    this.get(path)._mutations.upd.push(item);
-                }
-                // TODO реализовать откат изменений и удаление мутации изменения
-            }*!/
-        }*/
         this.isChanged = this._checkMutation();
     }
 
@@ -146,8 +132,10 @@ class PlDataObserver extends PlElement {
         } else if (obj instanceof Object) {
             for (const prop in obj) {
                 const o = obj[prop];
-                if (o instanceof Object && this._checkMutation(o)) {
-                    return true;
+                if (o instanceof Object) {
+                    return this._checkMutation(o);
+                } else {
+                    if ( obj._old && o !== obj._old[prop]) return true;
                 }
             }
         }
