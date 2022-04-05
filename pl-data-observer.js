@@ -30,24 +30,24 @@ class PlDataObserver extends PlElement {
         if (!c) return;
         if (Array.isArray(c)) {
             c._mutations = c._mutations || {upd: [], del: [], add: [], touch: []};
-            if (this._checkMutation(c)) {
-                if (c._mutations.add.indexOf(a) < 0
-                    && c._mutations.del.indexOf(a) < 0
-                    && c._mutations.upd.indexOf(a) < 0
-                    && c._mutations.touch.indexOf(a) < 0) {
-                    if (upd) c._mutations.upd.push(a);
-                    else c._mutations.touch.push(a);
+            if (this._checkMutation(a, upd)) {
+                if ( upd && c._mutations.add.indexOf(a) < 0 && c._mutations.upd.indexOf(a) < 0 ) {
+                    c._mutations.upd.push(a);
+                } else if (!upd && c._mutations.touch.indexOf(a) < 0) {
+                    c._mutations.touch.push(a);
                 }
             } else {
-                const updIdx = c._mutations.upd.indexOf(a);
-                if (updIdx >= 0) c._mutations.upd.splice(updIdx, 1);
-                const touchIdx = c._mutations.touch.indexOf(a);
-                if (touchIdx >= 0) c._mutations.touch.splice(touchIdx, 1);
+                if (upd) {
+                    const updIdx = c._mutations.upd.indexOf(a);
+                    if (updIdx >= 0) c._mutations.upd.splice(updIdx, 1);
+                } else {
+                    const touchIdx = c._mutations.touch.indexOf(a);
+                    if (touchIdx >= 0) c._mutations.touch.splice(touchIdx, 1);
+                }
             }
             upd = false;
-
-            this.setTouch(path.slice(0, -1), chain.slice(0, -1), upd);
         }
+        this.setTouch(path.slice(0, -1), chain.slice(0, -1), upd);
     }
 
     _dataChanged(newVal, old, mutation) {
@@ -112,7 +112,7 @@ class PlDataObserver extends PlElement {
         this._clearMutation(obj);
     }
 
-    _checkMutation(obj) {
+    _checkMutation(obj, firstLevel) {
         obj = obj || this.data;
         if (Array.isArray(obj)) {
             if (obj._mutations) {
@@ -133,7 +133,7 @@ class PlDataObserver extends PlElement {
             for (const prop in obj) {
                 const o = obj[prop];
                 if (o instanceof Object) {
-                    return this._checkMutation(o);
+                    if (!firstLevel) return this._checkMutation(o);
                 } else {
                     if ( obj._old && o !== obj._old[prop]) return true;
                 }
