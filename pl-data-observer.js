@@ -131,9 +131,10 @@ class PlDataObserver extends PlElement {
             }
         } else if (obj instanceof Object) {
             for (const prop in obj) {
+                if (prop.startsWith('_')) continue;
                 const o = obj[prop];
                 if (o instanceof Object) {
-                    if (!firstLevel) return this._checkMutation(o);
+                    if (!firstLevel && this._checkMutation(o)) return true;
                 } else {
                     if ( obj._old && o !== obj._old[prop]) return true;
                 }
