@@ -33,7 +33,7 @@ class PlDataObserver extends PlElement {
             if (this._checkMutation(a, upd)) {
                 if ( upd && c._mutations.add.indexOf(a) < 0 && c._mutations.upd.indexOf(a) < 0 ) {
                     c._mutations.upd.push(a);
-                } else if (!upd && c._mutations.touch.indexOf(a) < 0) {
+                } else if (!upd && c._mutations.add.indexOf(a) < 0 && c._mutations.upd.indexOf(a) < 0 && c._mutations.touch.indexOf(a) < 0) {
                     c._mutations.touch.push(a);
                 }
             } else {
