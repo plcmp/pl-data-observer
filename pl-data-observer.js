@@ -1,37 +1,33 @@
 import { PlElement, css } from "polylib";
-import {normalizePath} from "polylib/common.js";
+import { normalizePath } from "polylib/common.js";
 
 class PlDataObserver extends PlElement {
-    static get properties() {
-        return {
-            data: {
-                type: Array,
-                value: () => [],
-                observer: '_dataChanged'
-            },
-            isChanged: {
-                type: Boolean,
-                value: false
-            }
-        };
-    }
+    static  properties = {
+        data: {
+            type: Array,
+            value: () => [],
+            observer: '_dataChanged'
+        },
+        isChanged: {
+            type: Boolean,
+            value: false
+        }
+    };
 
-    static get css() {
-        return css`
-            :host{ 
-                display: none;
-            }
-        `;
-    }
+    static  css = css`
+        :host{ 
+            display: none;
+        }
+    `;
 
     setTouch(path, chain, upd) {
         let c = chain.at(-2);
         let a = chain.at(-1);
         if (!c) return;
         if (Array.isArray(c)) {
-            c._mutations = c._mutations || {upd: [], del: [], add: [], touch: []};
+            c._mutations = c._mutations || { upd: [], del: [], add: [], touch: [] };
             if (this._checkMutation(a, upd)) {
-                if ( upd && c._mutations.add.indexOf(a) < 0 && c._mutations.upd.indexOf(a) < 0 ) {
+                if (upd && c._mutations.add.indexOf(a) < 0 && c._mutations.upd.indexOf(a) < 0) {
                     c._mutations.upd.push(a);
                 } else if (!upd && c._mutations.add.indexOf(a) < 0 && c._mutations.upd.indexOf(a) < 0 && c._mutations.touch.indexOf(a) < 0) {
                     c._mutations.touch.push(a);
@@ -54,7 +50,7 @@ class PlDataObserver extends PlElement {
         if (!this.data) return;
         let path = normalizePath(mutation.path);
         let c = this;
-        let chain = path.map( p => c = c[p] );
+        let chain = path.map(p => c = c[p]);
         let current = chain.at(-1);
 
         if (Array.isArray(current) && mutation.action === 'splice') {
@@ -107,9 +103,11 @@ class PlDataObserver extends PlElement {
     }
 
     reset(obj) {
-        this.isChanged = false;
-        this._isChangedArray = false;
-        this._clearMutation(obj);
+        setTimeout(() => {
+            this.isChanged = false;
+            this._isChangedArray = false;
+            this._clearMutation(obj);
+        }, 0);
     }
 
     _checkMutation(obj, firstLevel) {
@@ -136,7 +134,7 @@ class PlDataObserver extends PlElement {
                 if (o instanceof Object && !(o instanceof Date)) {
                     if (!firstLevel && this._checkMutation(o)) return true;
                 } else {
-                    if ( obj._old && o !== obj._old[prop]) return true;
+                    if (obj._old && o !== obj._old[prop]) return true;
                 }
             }
         }
@@ -163,20 +161,23 @@ class PlDataObserver extends PlElement {
     }
 
     snapshot(obj) {
-        this.isChanged = false;
-        obj = obj || this.data;
-        if (Array.isArray(obj)) {
-            obj.forEach((i) => {
-                if (i instanceof Object) this.snapshot(i);
-            });
-        } else {
-            obj._old = obj._old || {};
-            Object.keys(obj).forEach((k) => {
-                if (k === '_old') return;
-                if (obj[k] instanceof Object && !(obj[k] instanceof Date)) this.snapshot(obj[k]);
-                else obj._old[k] = obj[k];
-            });
-        }
+        // wait for nested components initialize
+        setTimeout(() => {
+            this.isChanged = false;
+            obj = obj || this.data;
+            if (Array.isArray(obj)) {
+                obj.forEach((i) => {
+                    if (i instanceof Object) this.snapshot(i);
+                });
+            } else {
+                obj._old = obj._old || {};
+                Object.keys(obj).forEach((k) => {
+                    if (k === '_old') return;
+                    if (obj[k] instanceof Object && !(obj[k] instanceof Date)) this.snapshot(obj[k]);
+                    else obj._old[k] = obj[k];
+                });
+            }
+        }, 0);
     }
 }
 
