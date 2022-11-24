@@ -103,11 +103,9 @@ class PlDataObserver extends PlElement {
     }
 
     reset(obj) {
-        setTimeout(() => {
-            this.isChanged = false;
-            this._isChangedArray = false;
-            this._clearMutation(obj);
-        }, 0);
+        this.isChanged = false;
+        this._isChangedArray = false;
+        this._clearMutation(obj);
     }
 
     _checkMutation(obj, firstLevel) {
@@ -161,23 +159,20 @@ class PlDataObserver extends PlElement {
     }
 
     snapshot(obj) {
-        // wait for nested components initialize
-        setTimeout(() => {
-            this.isChanged = false;
-            obj = obj || this.data;
-            if (Array.isArray(obj)) {
-                obj.forEach((i) => {
-                    if (i instanceof Object) this.snapshot(i);
-                });
-            } else {
-                obj._old = obj._old || {};
-                Object.keys(obj).forEach((k) => {
-                    if (k === '_old') return;
-                    if (obj[k] instanceof Object && !(obj[k] instanceof Date)) this.snapshot(obj[k]);
-                    else obj._old[k] = obj[k];
-                });
-            }
-        }, 0);
+        this.isChanged = false;
+        obj = obj || this.data;
+        if (Array.isArray(obj)) {
+            obj.forEach((i) => {
+                if (i instanceof Object) this.snapshot(i);
+            });
+        } else {
+            obj._old = obj._old || {};
+            Object.keys(obj).forEach((k) => {
+                if (k === '_old') return;
+                if (obj[k] instanceof Object && !(obj[k] instanceof Date)) this.snapshot(obj[k]);
+                else obj._old[k] = obj[k];
+            });
+        }
     }
 }
 
