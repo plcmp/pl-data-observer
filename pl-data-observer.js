@@ -165,6 +165,7 @@ class PlDataObserver extends PlElement {
             obj.forEach((i) => {
                 if (i instanceof Object) this.snapshot(i);
             });
+            obj._mutations = { upd: [], del: [], add: [], touch: [] };
         } else {
             obj._old = obj._old || {};
             Object.keys(obj).forEach((k) => {
