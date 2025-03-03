@@ -1,8 +1,8 @@
-import { PlElement, css } from "polylib";
-import { normalizePath } from "polylib/common.js";
+import { PlElement, css } from 'polylib';
+import { normalizePath } from 'polylib/common.js';
 
 class PlDataObserver extends PlElement {
-    static  properties = {
+    static properties = {
         data: {
             type: Array,
             value: () => [],
@@ -14,15 +14,15 @@ class PlDataObserver extends PlElement {
         }
     };
 
-    static  css = css`
+    static css = css`
         :host{ 
             display: none;
         }
     `;
 
     setTouch(path, chain, upd) {
-        let c = chain.at(-2);
-        let a = chain.at(-1);
+        const c = chain.at(-2);
+        const a = chain.at(-1);
         if (!c) return;
         if (Array.isArray(c)) {
             c._mutations = c._mutations || { upd: [], del: [], add: [], touch: [] };
@@ -41,16 +41,16 @@ class PlDataObserver extends PlElement {
                     if (touchIdx >= 0) c._mutations.touch.splice(touchIdx, 1);
                 }
             }
-            upd = false;
         }
+        upd = false;
         this.setTouch(path.slice(0, -1), chain.slice(0, -1), upd);
     }
 
     _dataChanged(newVal, old, mutation) {
         if (!this.data) return;
-        let path = normalizePath(mutation.path);
+        const path = normalizePath(mutation.path);
         let c = this;
-        let chain = path.map(p => c = c[p]);
+        const chain = path.map(p => c = c[p]);
         let current = chain.at(-1);
 
         if (Array.isArray(current) && mutation.action === 'splice') {
@@ -89,10 +89,7 @@ class PlDataObserver extends PlElement {
                 });
                 this.setTouch(path, chain);
             }
-
-
-        }
-        else if (chain.at(-2) instanceof Object && mutation.action === 'upd') {
+        } else if (chain.at(-2) instanceof Object && mutation.action === 'upd') {
             current = chain.at(-2);
             if (current._old) {
                 this.setTouch(path, chain, true);
@@ -113,17 +110,16 @@ class PlDataObserver extends PlElement {
         if (Array.isArray(obj)) {
             if (obj._mutations) {
                 if (obj._mutations.upd.length
-                    || obj._mutations.del.length
-                    || obj._mutations.add.length
-                    || obj._mutations.touch.length) {
+                  || obj._mutations.del.length
+                  || obj._mutations.add.length
+                  || obj._mutations.touch.length) {
                     return true;
                 }
             }
 
             for (let i = 0, c = obj.length; i < c; i++) {
-                let o = obj[i];
-                if (o instanceof Object && this._checkMutation(o))
-                    return true;
+                const o = obj[i];
+                if (o instanceof Object && this._checkMutation(o)) return true;
             }
         } else if (obj instanceof Object) {
             for (const prop in obj) {
