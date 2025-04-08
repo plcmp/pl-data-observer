@@ -41,8 +41,9 @@ class PlDataObserver extends PlElement {
                     if (touchIdx >= 0) c._mutations.touch.splice(touchIdx, 1);
                 }
             }
+            upd = false;
         }
-        upd = false;
+
         this.setTouch(path.slice(0, -1), chain.slice(0, -1), upd);
     }
 
@@ -105,7 +106,7 @@ class PlDataObserver extends PlElement {
         this._clearMutation(obj);
     }
 
-    _checkMutation(obj, firstLevel) {
+    _checkMutation(obj) {
         obj = obj || this.data;
         if (Array.isArray(obj)) {
             if (obj._mutations) {
@@ -126,7 +127,7 @@ class PlDataObserver extends PlElement {
                 if (prop.startsWith('_')) continue;
                 const o = obj[prop];
                 if (o instanceof Object && !(o instanceof Date)) {
-                    if (!firstLevel && this._checkMutation(o)) return true;
+                    return this._checkMutation(o);
                 } else {
                     if (obj._old && o !== obj._old[prop]) return true;
                 }
