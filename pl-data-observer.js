@@ -127,7 +127,7 @@ class PlDataObserver extends PlElement {
                 if (prop.startsWith('_')) continue;
                 const o = obj[prop];
                 if (o instanceof Object && !(o instanceof Date)) {
-                    return this._checkMutation(o);
+                    if (this._checkMutation(o)) return true;
                 } else {
                     if (obj._old && o !== obj._old[prop]) return true;
                 }
