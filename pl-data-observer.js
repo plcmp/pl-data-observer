@@ -126,11 +126,8 @@ class PlDataObserver extends PlElement {
             for (const prop in obj) {
                 if (prop.startsWith('_')) continue;
                 const o = obj[prop];
-                if (o instanceof Object && !(o instanceof Date)) {
-                    if (this._checkMutation(o)) return true;
-                } else {
-                    if (obj._old && o !== obj._old[prop]) return true;
-                }
+                if (obj._old && o !== obj._old[prop]) return true;
+                if (o instanceof Object && !(o instanceof Date) && this._checkMutation(o)) return true;
             }
         }
         return false;
@@ -167,8 +164,8 @@ class PlDataObserver extends PlElement {
             obj._old = obj._old || {};
             Object.keys(obj).forEach((k) => {
                 if (k === '_old') return;
+                obj._old[k] = obj[k];
                 if (obj[k] instanceof Object && !(obj[k] instanceof Date)) this.snapshot(obj[k]);
-                else obj._old[k] = obj[k];
             });
         }
     }
